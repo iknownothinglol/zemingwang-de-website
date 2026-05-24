@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zeming Wang - Academic Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        /* RWTH Brand Colors */
+        :root {
+            --primary-blue: #00549F;
+            --dark-blue: #002F5F;
+            --accent-green: #00875A;
+            --accent-red: #E30066;
+            --bg-light: #f8fafc;
+        }
+        
+        body {
+            background-color: var(--bg-light);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* Glassmorphism Card Effect */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 84, 159, 0.3);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <div id="app" class="flex-1 flex flex-col">
+        <!-- Top Navigation -->
+        <header class="bg-[#00549F] text-white shadow-md sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <!-- Avatar/Logo -->
+                    <div class="w-10 h-10 rounded-full bg-white text-[#00549F] flex items-center justify-center font-bold text-xl shadow-inner">
+                        ZW
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight">Zeming's Control Hub</h1>
+                        <p class="text-xs text-blue-200 opacity-80">RWTH Aachen University • Academic & Dev Hub</p>
+                    </div>
+                </div>
+                
+                <!-- Status & Time Panel -->
+                <div class="hidden md:flex flex-col items-end">
+                    <div class="flex items-center space-x-2 text-sm">
+                        <span class="relative flex h-3 w-3">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                        <span class="font-medium">System Online (API Connected)</span>
+                    </div>
+                    <div class="text-xs text-blue-200 mt-1 font-mono">
+                        {{ currentTime }}
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
+            
+            <!-- Welcome Section -->
+            <section class="mb-10">
+                <h2 class="text-3xl font-extrabold text-slate-800 tracking-tight mb-2">Welcome back, Zeming.</h2>
+                <p class="text-slate-500 max-w-2xl">
+                    This is the centralized management platform for your academic projects, interactive tools, and study data. Every new tool you develop will automatically integrate as a module into this dashboard.
+                </p>
+            </section>
+
+            <!-- Modules Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                <!-- Module 1: Active - Exam Dashboard -->
+                <a href="./rwth_aachen_2026.html" class="glass-card rounded-2xl p-6 group cursor-pointer relative overflow-hidden block">
+                    <!-- Status Badge -->
+                    <div class="absolute top-4 right-4 bg-green-100 text-green-700 text-[10px] font-bold px-2.5 py-1 rounded-full border border-green-200 flex items-center gap-1">
+                        <i class="ph-fill ph-check-circle"></i> Online
+                    </div>
+                    
+                    <div class="w-12 h-12 rounded-xl bg-blue-50 text-[#00549F] flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                        <i class="ph-fill ph-calendar-check text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-2 group-hover:text-[#00549F] transition-colors">Exam Schedule Dashboard</h3>
+                    <p class="text-sm text-slate-500 mb-4 line-clamp-2">
+                        Personalized exam preparation system for Sommersemester 2026. Includes progress tracking, ECTS analysis, and AI-driven study strategies.
+                    </p>
+                    <div class="flex items-center text-xs text-[#00549F] font-semibold mt-auto">
+                        Enter System <i class="ph ph-arrow-right ml-1 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                </a>
+
+                <!-- Module 2: Planned - Study Datahub API -->
+                <div @click="openModal('database')" class="glass-card rounded-2xl p-6 group cursor-pointer relative overflow-hidden">
+                    <div class="absolute top-4 right-4 bg-amber-100 text-amber-700 text-[10px] font-bold px-2.5 py-1 rounded-full border border-amber-200 flex items-center gap-1">
+                        <i class="ph-fill ph-wrench"></i> Dev Stage
+                    </div>
+                    
+                    <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                        <i class="ph-fill ph-database text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-2 group-hover:text-purple-600 transition-colors">Study Datahub API</h3>
+                    <p class="text-sm text-slate-500 mb-4 line-clamp-2">
+                        Reserved backend database interface. Will centrally store Skripte and Altklausuren on your VPS, replacing LocalStorage for cross-device sync.
+                    </p>
+                    <div class="flex items-center text-xs text-purple-600 font-semibold mt-auto">
+                        View API Architecture <i class="ph ph-terminal-window ml-1 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                </div>
+
+                <!-- Module 3: Locked - AI Error Analysis -->
+                <div class="glass-card rounded-2xl p-6 group cursor-not-allowed relative overflow-hidden opacity-75">
+                    <div class="absolute top-4 right-4 bg-slate-100 text-slate-500 text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1">
+                        <i class="ph-fill ph-lock-key"></i> Locked
+                    </div>
+                    
+                    <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center mb-4">
+                        <i class="ph-fill ph-brain text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-2 text-slate-400">AI Error Analysis Engine</h3>
+                    <p class="text-sm text-slate-400 mb-4 line-clamp-2">
+                        Planned OpenAI/Gemini integration. Input exam questions to automatically generate explanations and archive knowledge points.
+                    </p>
+                    <div class="flex items-center text-xs text-slate-400 font-semibold mt-auto">
+                        Coming Soon
+                    </div>
+                </div>
+
+                 <!-- Module 4: Locked - GPA Predictor -->
+                 <div class="glass-card rounded-2xl p-6 group cursor-not-allowed relative overflow-hidden opacity-75">
+                    <div class="absolute top-4 right-4 bg-slate-100 text-slate-500 text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1">
+                        <i class="ph-fill ph-lock-key"></i> Locked
+                    </div>
+                    
+                    <div class="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center mb-4">
+                        <i class="ph-fill ph-chart-line-up text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-2 text-slate-400">GPA Tracker & Predictor</h3>
+                    <p class="text-sm text-slate-400 mb-4 line-clamp-2">
+                        Dynamically calculates your current average based on passed subjects and predicts the target scores needed to achieve a 1.X average.
+                    </p>
+                    <div class="flex items-center text-xs text-slate-400 font-semibold mt-auto">
+                        Coming Soon
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity Panel -->
+            <section class="mt-12">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="ph-fill ph-activity text-[#00549F]"></i> System Logs
+                </h3>
+                <div class="bg-white rounded-xl border border-slate-200 p-4 font-mono text-sm shadow-sm">
+                    <div v-for="(log, index) in systemLogs" :key="index" class="flex items-start gap-4 py-2 border-b border-slate-50 last:border-0">
+                        <span class="text-slate-400 min-w-[140px]">{{ log.time }}</span>
+                        <span :class="log.type === 'SUCCESS' ? 'text-green-600' : (log.type === 'INFO' ? 'text-blue-600' : 'text-amber-600')">[{{ log.type }}]</span>
+                        <span class="text-slate-700">{{ log.message }}</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Modal: Database API Architecture Draft -->
+        <div v-if="isModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="closeModal"></div>
+            
+            <!-- Modal Body -->
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto relative z-10 p-6 sm:p-8">
+                <button @click="closeModal" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors">
+                    <i class="ph ph-x text-lg"></i>
+                </button>
+                
+                <h2 class="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+                    <i class="ph-fill ph-database text-purple-600"></i> Datahub API Architecture Draft
+                </h2>
+                <p class="text-sm text-slate-500 mb-6 border-b border-slate-100 pb-4">
+                    This is the interface standard designed for your future migration of study materials from local storage to a cloud database hosted on your Ubuntu VPS.
+                </p>
+
+                <div class="space-y-6">
+                    <!-- API Card 1 -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="bg-green-100 text-green-700 font-bold px-2 py-1 rounded text-xs font-mono">POST</span>
+                            <span class="font-mono text-sm font-bold text-slate-700">/api/v1/files/upload</span>
+                        </div>
+                        <p class="text-sm text-slate-600 mb-2">Upload new study materials (supports PDF, Docx, Images, etc.).</p>
+                        <div class="bg-slate-800 rounded-lg p-3 text-xs text-green-400 font-mono overflow-x-auto">
+                            // Request Body (FormData)<br>
+                            file: (Binary Data)<br>
+                            lv_nummer: "51PV19441" // Linked course ID<br>
+                            folder: "skripte" // Directory category
+                        </div>
+                    </div>
+
+                    <!-- API Card 2 -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded text-xs font-mono">GET</span>
+                            <span class="font-mono text-sm font-bold text-slate-700">/api/v1/files/:lv_nummer</span>
+                        </div>
+                        <p class="text-sm text-slate-600 mb-2">Fetch all uploaded files metadata for a specific course.</p>
+                        <div class="bg-slate-800 rounded-lg p-3 text-xs text-blue-300 font-mono overflow-x-auto">
+                            // Response Example<br>
+                            {<br>
+                            &nbsp;&nbsp;"status": "success",<br>
+                            &nbsp;&nbsp;"data": [<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;{ "id": "uuid-123", "name": "Mechanik_Skript.pdf", "url": "https://zemingwang.de/uploads/uuid-123.pdf", "size": 2048576 }<br>
+                            &nbsp;&nbsp;]<br>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Tech Stack Recommendations -->
+                    <div class="text-sm text-slate-700 bg-blue-50 border-l-4 border-[#00549F] p-4 rounded-r-lg mt-4">
+                        <strong>Tech Stack Recommendations (for Ubuntu VPS):</strong><br>
+                        • <strong>Backend Framework:</strong> Node.js (Express) or Python (FastAPI). Both are lightweight and perfect for REST APIs.<br>
+                        • <strong>Database:</strong> PostgreSQL (highly scalable) or SQLite (zero-configuration, single file).<br>
+                        • <strong>File Storage:</strong> Actual PDFs are stored on the VPS disk (e.g., <code>/var/www/uploads/</code>), while the database only stores the metadata and file paths.
+                    </div>
+                </div>
+                
+                <div class="mt-8 flex justify-end">
+                    <button @click="closeModal" class="px-6 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition-colors">
+                        Understood, Close
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-white border-t border-slate-200 mt-auto">
+            <div class="max-w-7xl mx-auto px-6 py-6 text-center sm:flex sm:justify-between sm:text-left text-sm text-slate-500">
+                <p>&copy; 2026 Zeming Wang. All rights reserved.</p>
+                <p class="mt-2 sm:mt-0">Deployed on Ubuntu VPS via GitHub Actions</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, onUnmounted } = Vue;
+
+        createApp({
+            setup() {
+                const currentTime = ref('');
+                const isModalOpen = ref(false);
+                let timer = null;
+
+                // Mock System Logs
+                const systemLogs = ref([
+                    { time: '2026-05-25 10:15:22', type: 'SUCCESS', message: 'Main Dashboard (v1.0.0) loaded successfully.' },
+                    { time: '2026-05-25 10:15:23', type: 'INFO', message: 'Detected sub-module: rwth_aachen_2026.html (Status: Ready)' },
+                    { time: '2026-05-24 23:45:00', type: 'INFO', message: 'DNS resolution active, A record pointed to server 85.190.x.x successfully.' },
+                    { time: '2026-05-24 23:55:12', type: 'SUCCESS', message: 'Nginx Web Server started successfully and routing traffic.' }
+                ]);
+
+                const updateTime = () => {
+                    const now = new Date();
+                    // Custom formatting for English locale
+                    currentTime.value = now.toLocaleString('en-US', { 
+                        year: 'numeric', month: 'short', day: '2-digit', 
+                        hour: '2-digit', minute:'2-digit', second:'2-digit', hour12: false
+                    });
+                };
+
+                const openModal = (target) => {
+                    if (target === 'database') {
+                        isModalOpen.value = true;
+                        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+                    }
+                };
+
+                const closeModal = () => {
+                    isModalOpen.value = false;
+                    document.body.style.overflow = 'auto'; // Restore scrolling
+                };
+
+                onMounted(() => {
+                    updateTime();
+                    timer = setInterval(updateTime, 1000);
+                });
+
+                onUnmounted(() => {
+                    if (timer) clearInterval(timer);
+                });
+
+                return {
+                    currentTime,
+                    systemLogs,
+                    isModalOpen,
+                    openModal,
+                    closeModal
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
