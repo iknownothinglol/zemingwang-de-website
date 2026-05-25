@@ -10,7 +10,17 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    
+
+    <!-- ===== Auth Guard: runs BEFORE Vue mounts. No flash of protected content. ===== -->
+    <script>
+        (function () {
+            const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+            if (!token) {
+                window.location.replace('/login.html');
+            }
+        })();
+    </script>
+
     <style>
         /* RWTH Brand Colors */
         :root {
@@ -20,11 +30,14 @@
             --accent-red: #E30066;
             --bg-light: #f8fafc;
         }
-        
+
         body {
             background-color: var(--bg-light);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
+
+        /* Hide app until auth is verified — prevents flash of dashboard for unauthenticated visitors */
+        [v-cloak] { display: none; }
 
         /* Glassmorphism Card Effect */
         .glass-card {
@@ -34,11 +47,30 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
+
         .glass-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             border-color: rgba(0, 84, 159, 0.3);
+        }
+
+        /* Role badge */
+        .role-badge-admin {
+            background: linear-gradient(135deg, #00875A 0%, #00a36e 100%);
+            color: white;
+        }
+        .role-badge-viewer {
+            background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%);
+            color: white;
+        }
+
+        /* Logout button hover */
+        .logout-btn {
+            transition: all 0.2s ease;
+        }
+        .logout-btn:hover {
+            background: rgba(227, 0, 102, 0.15);
+            color: #ffd6e6;
         }
 
         /* Custom Scrollbar */
@@ -46,72 +78,124 @@
             width: 6px;
             height: 6px;
         }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
+        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb {
             background: #cbd5e1;
             border-radius: 4px;
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Spinner for splash screen */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .auth-spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(0, 84, 159, 0.2);
+            border-top-color: #00549F;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
         }
     </style>
 </head>
 <body class="text-slate-800 antialiased min-h-screen flex flex-col">
 
-    <div id="app" class="flex-1 flex flex-col">
+    <!-- Splash screen shown while Vue boots & /api/me is checked -->
+    <div id="auth-splash" class="fixed inset-0 z-[9999] bg-slate-50 flex flex-col items-center justify-center transition-opacity duration-300">
+        <div class="auth-spinner mb-4"></div>
+        <p class="text-slate-500 text-sm font-medium">Verifying session...</p>
+    </div>
+
+    <div id="app" v-cloak class="flex-1 flex flex-col">
         <!-- Top Navigation -->
         <header class="bg-[#00549F] text-white shadow-md sticky top-0 z-50">
-            <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-                <div class="flex items-center space-x-4">
+            <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center gap-4">
+                <div class="flex items-center space-x-4 min-w-0">
                     <!-- Avatar/Logo -->
-                    <div class="w-10 h-10 rounded-full bg-white text-[#00549F] flex items-center justify-center font-bold text-xl shadow-inner">
+                    <div class="w-10 h-10 rounded-full bg-white text-[#00549F] flex items-center justify-center font-bold text-xl shadow-inner flex-shrink-0">
                         ZW
                     </div>
-                    <div>
-                        <h1 class="text-xl font-bold tracking-tight">Zeming's Control Hub</h1>
-                        <p class="text-xs text-blue-200 opacity-80">RWTH Aachen University • Academic & Dev Hub</p>
+                    <div class="min-w-0">
+                        <h1 class="text-xl font-bold tracking-tight truncate">Zeming's Control Hub</h1>
+                        <p class="text-xs text-blue-200 opacity-80 truncate">RWTH Aachen University • Academic & Dev Hub</p>
                     </div>
                 </div>
-                
-                <!-- Status & Time Panel -->
-                <div class="hidden md:flex flex-col items-end">
-                    <div class="flex items-center space-x-2 text-sm">
-                        <span class="relative flex h-3 w-3">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                        </span>
-                        <span class="font-medium">System Online (API Connected)</span>
+
+                <!-- User Info & Logout Panel -->
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <!-- User chip -->
+                    <div class="hidden sm:flex items-center gap-2 bg-blue-900/40 border border-blue-400/30 rounded-xl px-3 py-1.5">
+                        <i class="ph-fill ph-user-circle text-lg text-blue-200"></i>
+                        <div class="text-right leading-tight">
+                            <div class="text-sm font-bold text-white">{{ currentUser.username }}</div>
+                            <div class="text-[10px] uppercase tracking-wider font-bold inline-block px-1.5 py-0.5 rounded mt-0.5"
+                                 :class="currentUser.role === 'admin' ? 'role-badge-admin' : 'role-badge-viewer'">
+                                {{ currentUser.role }}
+                            </div>
+                        </div>
                     </div>
-                    <div class="text-xs text-blue-200 mt-1 font-mono">
-                        {{ currentTime }}
-                    </div>
+
+                    <!-- Logout button -->
+                    <button
+                        @click="handleLogout"
+                        class="logout-btn flex items-center gap-1.5 px-3 py-2 bg-blue-900/30 border border-blue-400/30 text-blue-100 rounded-xl text-sm font-semibold"
+                        title="Sign out"
+                    >
+                        <i class="ph ph-sign-out text-base"></i>
+                        <span class="hidden sm:inline">Logout</span>
+                    </button>
                 </div>
             </div>
         </header>
 
         <!-- Main Content Area -->
         <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
-            
-            <!-- Welcome Section -->
+
+            <!-- Welcome Section + status bar -->
             <section class="mb-10">
-                <h2 class="text-3xl font-extrabold text-slate-800 tracking-tight mb-2">Welcome back, Zeming.</h2>
-                <p class="text-slate-500 max-w-2xl">
-                    This is the centralized management platform for your academic projects, interactive tools, and study data. Every new tool you develop will automatically integrate as a module into this dashboard.
-                </p>
+                <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-3">
+                    <div>
+                        <h2 class="text-3xl font-extrabold text-slate-800 tracking-tight mb-2">
+                            Welcome back, {{ currentUser.username }}.
+                        </h2>
+                        <p class="text-slate-500 max-w-2xl">
+                            <span v-if="currentUser.role === 'admin'">
+                                You are signed in as <strong class="text-emerald-700">administrator</strong>. Every new tool you develop will automatically integrate as a module into this dashboard.
+                            </span>
+                            <span v-else>
+                                You are signed in as <strong class="text-slate-700">viewer</strong>. You can browse content but cannot make changes.
+                            </span>
+                        </p>
+                    </div>
+
+                    <!-- API health + clock -->
+                    <div class="bg-white rounded-xl border border-slate-200 px-4 py-2.5 shadow-sm">
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="relative flex h-2.5 w-2.5">
+                                <span v-if="apiOnline" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2.5 w-2.5"
+                                      :class="apiOnline ? 'bg-green-500' : 'bg-rose-500'"></span>
+                            </span>
+                            <span class="font-semibold" :class="apiOnline ? 'text-green-700' : 'text-rose-700'">
+                                {{ apiOnline ? 'API Online' : 'API Offline' }}
+                            </span>
+                        </div>
+                        <div class="text-[11px] text-slate-500 mt-1 font-mono">
+                            {{ currentTime }}
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- Modules Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                
+
                 <!-- Module 1: Active - Exam Dashboard -->
                 <a href="./rwth_aachen_2026.html" class="glass-card rounded-2xl p-6 group cursor-pointer relative overflow-hidden block">
-                    <!-- Status Badge -->
                     <div class="absolute top-4 right-4 bg-green-100 text-green-700 text-[10px] font-bold px-2.5 py-1 rounded-full border border-green-200 flex items-center gap-1">
                         <i class="ph-fill ph-check-circle"></i> Online
                     </div>
-                    
+
                     <div class="w-12 h-12 rounded-xl bg-blue-50 text-[#00549F] flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                         <i class="ph-fill ph-calendar-check text-2xl"></i>
                     </div>
@@ -129,13 +213,13 @@
                     <div class="absolute top-4 right-4 bg-amber-100 text-amber-700 text-[10px] font-bold px-2.5 py-1 rounded-full border border-amber-200 flex items-center gap-1">
                         <i class="ph-fill ph-wrench"></i> Dev Stage
                     </div>
-                    
+
                     <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                         <i class="ph-fill ph-database text-2xl"></i>
                     </div>
                     <h3 class="text-lg font-bold mb-2 group-hover:text-purple-600 transition-colors">Study Datahub API</h3>
                     <p class="text-sm text-slate-500 mb-4 line-clamp-2">
-                        Reserved backend database interface. Will centrally store Skripte and Altklausuren on your VPS, replacing LocalStorage for cross-device sync.
+                        Backend database interface (now live!). Stores exam states, notes, and uploaded files on your VPS — replacing LocalStorage for cross-device sync.
                     </p>
                     <div class="flex items-center text-xs text-purple-600 font-semibold mt-auto">
                         View API Architecture <i class="ph ph-terminal-window ml-1 group-hover:translate-x-1 transition-transform"></i>
@@ -147,7 +231,7 @@
                     <div class="absolute top-4 right-4 bg-slate-100 text-slate-500 text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1">
                         <i class="ph-fill ph-lock-key"></i> Locked
                     </div>
-                    
+
                     <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center mb-4">
                         <i class="ph-fill ph-brain text-2xl"></i>
                     </div>
@@ -160,12 +244,12 @@
                     </div>
                 </div>
 
-                 <!-- Module 4: Locked - GPA Predictor -->
-                 <div class="glass-card rounded-2xl p-6 group cursor-not-allowed relative overflow-hidden opacity-75">
+                <!-- Module 4: Locked - GPA Predictor -->
+                <div class="glass-card rounded-2xl p-6 group cursor-not-allowed relative overflow-hidden opacity-75">
                     <div class="absolute top-4 right-4 bg-slate-100 text-slate-500 text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1">
                         <i class="ph-fill ph-lock-key"></i> Locked
                     </div>
-                    
+
                     <div class="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center mb-4">
                         <i class="ph-fill ph-chart-line-up text-2xl"></i>
                     </div>
@@ -186,30 +270,31 @@
                 </h3>
                 <div class="bg-white rounded-xl border border-slate-200 p-4 font-mono text-sm shadow-sm">
                     <div v-for="(log, index) in systemLogs" :key="index" class="flex items-start gap-4 py-2 border-b border-slate-50 last:border-0">
-                        <span class="text-slate-400 min-w-[140px]">{{ log.time }}</span>
-                        <span :class="log.type === 'SUCCESS' ? 'text-green-600' : (log.type === 'INFO' ? 'text-blue-600' : 'text-amber-600')">[{{ log.type }}]</span>
-                        <span class="text-slate-700">{{ log.message }}</span>
+                        <span class="text-slate-400 min-w-[140px] text-xs">{{ log.time }}</span>
+                        <span class="text-xs min-w-[70px]"
+                              :class="log.type === 'SUCCESS' ? 'text-green-600' : (log.type === 'INFO' ? 'text-blue-600' : (log.type === 'ERROR' ? 'text-rose-600' : 'text-amber-600'))">
+                            [{{ log.type }}]
+                        </span>
+                        <span class="text-slate-700 text-xs">{{ log.message }}</span>
                     </div>
                 </div>
             </section>
         </main>
 
-        <!-- Modal: Database API Architecture Draft -->
+        <!-- Modal: Database API Architecture -->
         <div v-if="isModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <!-- Backdrop -->
             <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="closeModal"></div>
-            
-            <!-- Modal Body -->
+
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto relative z-10 p-6 sm:p-8">
                 <button @click="closeModal" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors">
                     <i class="ph ph-x text-lg"></i>
                 </button>
-                
+
                 <h2 class="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-2">
-                    <i class="ph-fill ph-database text-purple-600"></i> Datahub API Architecture Draft
+                    <i class="ph-fill ph-database text-purple-600"></i> Datahub API — Now Live
                 </h2>
                 <p class="text-sm text-slate-500 mb-6 border-b border-slate-100 pb-4">
-                    This is the interface standard designed for your future migration of study materials from local storage to a cloud database hosted on your Ubuntu VPS.
+                    The backend is now running on your Ubuntu VPS with JWT authentication. All data is stored server-side with three-tier access control.
                 </p>
 
                 <div class="space-y-6">
@@ -217,14 +302,15 @@
                     <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
                         <div class="flex items-center gap-2 mb-2">
                             <span class="bg-green-100 text-green-700 font-bold px-2 py-1 rounded text-xs font-mono">POST</span>
-                            <span class="font-mono text-sm font-bold text-slate-700">/api/v1/files/upload</span>
+                            <span class="font-mono text-sm font-bold text-slate-700">/api/login</span>
+                            <span class="ml-auto text-[10px] text-emerald-700 font-bold">PUBLIC</span>
                         </div>
-                        <p class="text-sm text-slate-600 mb-2">Upload new study materials (supports PDF, Docx, Images, etc.).</p>
+                        <p class="text-sm text-slate-600 mb-2">Authenticates user, returns JWT token valid for 7 days.</p>
                         <div class="bg-slate-800 rounded-lg p-3 text-xs text-green-400 font-mono overflow-x-auto">
-                            // Request Body (FormData)<br>
-                            file: (Binary Data)<br>
-                            lv_nummer: "51PV19441" // Linked course ID<br>
-                            folder: "skripte" // Directory category
+                            // Request<br>
+                            { "username": "ZemingWang", "password": "***" }<br><br>
+                            // Response<br>
+                            { "token": "eyJ...", "user": { "role": "admin" } }
                         </div>
                     </div>
 
@@ -232,32 +318,45 @@
                     <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
                         <div class="flex items-center gap-2 mb-2">
                             <span class="bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded text-xs font-mono">GET</span>
-                            <span class="font-mono text-sm font-bold text-slate-700">/api/v1/files/:lv_nummer</span>
+                            <span class="font-mono text-sm font-bold text-slate-700">/api/states</span>
+                            <span class="ml-auto text-[10px] text-blue-700 font-bold">AUTH (any role)</span>
                         </div>
-                        <p class="text-sm text-slate-600 mb-2">Fetch all uploaded files metadata for a specific course.</p>
-                        <div class="bg-slate-800 rounded-lg p-3 text-xs text-blue-300 font-mono overflow-x-auto">
-                            // Response Example<br>
-                            {<br>
-                            &nbsp;&nbsp;"status": "success",<br>
-                            &nbsp;&nbsp;"data": [<br>
-                            &nbsp;&nbsp;&nbsp;&nbsp;{ "id": "uuid-123", "name": "Mechanik_Skript.pdf", "url": "https://zemingwang.de/uploads/uuid-123.pdf", "size": 2048576 }<br>
-                            &nbsp;&nbsp;]<br>
-                            }
-                        </div>
+                        <p class="text-sm text-slate-600 mb-2">Returns all exam states, notes, and flags. Both admin and viewer can read.</p>
                     </div>
 
-                    <!-- Tech Stack Recommendations -->
-                    <div class="text-sm text-slate-700 bg-blue-50 border-l-4 border-[#00549F] p-4 rounded-r-lg mt-4">
-                        <strong>Tech Stack Recommendations (for Ubuntu VPS):</strong><br>
-                        • <strong>Backend Framework:</strong> Node.js (Express) or Python (FastAPI). Both are lightweight and perfect for REST APIs.<br>
-                        • <strong>Database:</strong> PostgreSQL (highly scalable) or SQLite (zero-configuration, single file).<br>
-                        • <strong>File Storage:</strong> Actual PDFs are stored on the VPS disk (e.g., <code>/var/www/uploads/</code>), while the database only stores the metadata and file paths.
+                    <!-- API Card 3 -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="bg-amber-100 text-amber-700 font-bold px-2 py-1 rounded text-xs font-mono">POST</span>
+                            <span class="font-mono text-sm font-bold text-slate-700">/api/states/:lv_nummer</span>
+                            <span class="ml-auto text-[10px] text-rose-700 font-bold">ADMIN ONLY</span>
+                        </div>
+                        <p class="text-sm text-slate-600 mb-2">Updates exam status, materials, notes. Viewer accounts get 403.</p>
+                    </div>
+
+                    <!-- API Card 4 -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="bg-green-100 text-green-700 font-bold px-2 py-1 rounded text-xs font-mono">POST</span>
+                            <span class="font-mono text-sm font-bold text-slate-700">/api/files/upload</span>
+                            <span class="ml-auto text-[10px] text-rose-700 font-bold">ADMIN ONLY</span>
+                        </div>
+                        <p class="text-sm text-slate-600 mb-2">Uploads study materials (PDF, DOCX, images) — stored under /home/administrator/server/uploads/.</p>
+                    </div>
+
+                    <div class="text-sm text-slate-700 bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-lg mt-4">
+                        <strong>Live Tech Stack:</strong><br>
+                        • <strong>Runtime:</strong> Node.js v20 + Express<br>
+                        • <strong>Database:</strong> SQLite (via better-sqlite3, WAL mode)<br>
+                        • <strong>Auth:</strong> JWT (HS256) + bcryptjs (12 rounds)<br>
+                        • <strong>Process Manager:</strong> PM2 with systemd boot integration<br>
+                        • <strong>File Storage:</strong> Local disk + metadata in DB
                     </div>
                 </div>
-                
+
                 <div class="mt-8 flex justify-end">
                     <button @click="closeModal" class="px-6 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition-colors">
-                        Understood, Close
+                        Close
                     </button>
                 </div>
             </div>
@@ -275,44 +374,149 @@
     <script>
         const { createApp, ref, onMounted, onUnmounted } = Vue;
 
+        // ========== Reusable auth helpers (global, also used by rwth_aachen_2026.html later) ==========
+        function getAuthToken() {
+            return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+        }
+
+        function getAuthUser() {
+            const raw = localStorage.getItem('auth_user') || sessionStorage.getItem('auth_user');
+            try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+        }
+
+        function clearAuth() {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_user');
+            sessionStorage.removeItem('auth_token');
+            sessionStorage.removeItem('auth_user');
+        }
+
+        // Centralized fetch wrapper: auto-attaches token, redirects to login on 401
+        async function apiCall(path, options = {}) {
+            const token = getAuthToken();
+            const headers = Object.assign({}, options.headers || {}, {
+                'Authorization': 'Bearer ' + token
+            });
+            if (options.body && !(options.body instanceof FormData) && !headers['Content-Type']) {
+                headers['Content-Type'] = 'application/json';
+            }
+            const res = await fetch(path, Object.assign({}, options, { headers }));
+            if (res.status === 401) {
+                // Token expired or invalid
+                clearAuth();
+                window.location.replace('/login.html');
+                throw new Error('Session expired');
+            }
+            return res;
+        }
+
+        // Expose globally for use across pages
+        window.apiCall = apiCall;
+        window.getAuthUser = getAuthUser;
+        window.getAuthToken = getAuthToken;
+        window.clearAuth = clearAuth;
+
+        // ========== Vue App ==========
         createApp({
             setup() {
                 const currentTime = ref('');
                 const isModalOpen = ref(false);
+                const currentUser = ref({ username: '...', role: 'viewer' });
+                const apiOnline = ref(false);
+                const systemLogs = ref([]);
                 let timer = null;
 
-                // Mock System Logs
-                const systemLogs = ref([
-                    { time: '2026-05-25 10:15:22', type: 'SUCCESS', message: 'Main Dashboard (v1.0.0) loaded successfully.' },
-                    { time: '2026-05-25 10:15:23', type: 'INFO', message: 'Detected sub-module: rwth_aachen_2026.html (Status: Ready)' },
-                    { time: '2026-05-24 23:45:00', type: 'INFO', message: 'DNS resolution active, A record pointed to server 85.190.x.x successfully.' },
-                    { time: '2026-05-24 23:55:12', type: 'SUCCESS', message: 'Nginx Web Server started successfully and routing traffic.' }
-                ]);
+                const addLog = (type, message) => {
+                    const t = new Date().toISOString().replace('T', ' ').slice(0, 19);
+                    systemLogs.value.unshift({ time: t, type, message });
+                    if (systemLogs.value.length > 20) systemLogs.value.pop();
+                };
 
                 const updateTime = () => {
                     const now = new Date();
-                    // Custom formatting for English locale
-                    currentTime.value = now.toLocaleString('en-US', { 
-                        year: 'numeric', month: 'short', day: '2-digit', 
-                        hour: '2-digit', minute:'2-digit', second:'2-digit', hour12: false
+                    currentTime.value = now.toLocaleString('en-US', {
+                        year: 'numeric', month: 'short', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
                     });
                 };
 
                 const openModal = (target) => {
                     if (target === 'database') {
                         isModalOpen.value = true;
-                        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+                        document.body.style.overflow = 'hidden';
                     }
                 };
 
                 const closeModal = () => {
                     isModalOpen.value = false;
-                    document.body.style.overflow = 'auto'; // Restore scrolling
+                    document.body.style.overflow = 'auto';
+                };
+
+                const handleLogout = () => {
+                    if (!confirm('Sign out and return to login page?')) return;
+                    clearAuth();
+                    window.location.replace('/login.html');
+                };
+
+                // ========== Boot sequence ==========
+                const verifySessionAndBoot = async () => {
+                    addLog('INFO', 'Dashboard initializing...');
+
+                    // Verify token by calling /api/me
+                    try {
+                        const res = await apiCall('/api/me');
+                        if (!res.ok) {
+                            // apiCall already handles 401 redirect; other errors:
+                            throw new Error('Session check failed (HTTP ' + res.status + ')');
+                        }
+                        const data = await res.json();
+                        currentUser.value = data.user;
+                        addLog('SUCCESS', 'Authenticated as ' + data.user.username + ' (' + data.user.role + ')');
+                    } catch (err) {
+                        // Already redirected by apiCall if 401; otherwise log & redirect manually
+                        addLog('ERROR', 'Session verification failed: ' + err.message);
+                        setTimeout(() => {
+                            clearAuth();
+                            window.location.replace('/login.html');
+                        }, 1500);
+                        return;
+                    }
+
+                    // Health check
+                    try {
+                        const res = await fetch('/api/health');
+                        if (res.ok) {
+                            const data = await res.json();
+                            apiOnline.value = true;
+                            addLog('SUCCESS', 'Backend API online (' + data.service + ')');
+                        } else {
+                            apiOnline.value = false;
+                            addLog('ERROR', 'Backend health check returned ' + res.status);
+                        }
+                    } catch (err) {
+                        apiOnline.value = false;
+                        addLog('ERROR', 'Cannot reach backend: ' + err.message);
+                    }
+
+                    addLog('INFO', 'Detected sub-module: rwth_aachen_2026.html (Ready)');
+
+                    // Hide splash screen
+                    const splash = document.getElementById('auth-splash');
+                    if (splash) {
+                        splash.style.opacity = '0';
+                        setTimeout(() => splash.remove(), 300);
+                    }
                 };
 
                 onMounted(() => {
+                    // Pre-fill user from localStorage so the header doesn't say "..." before /api/me returns
+                    const cached = getAuthUser();
+                    if (cached) currentUser.value = cached;
+
                     updateTime();
                     timer = setInterval(updateTime, 1000);
+
+                    verifySessionAndBoot();
                 });
 
                 onUnmounted(() => {
@@ -323,8 +527,11 @@
                     currentTime,
                     systemLogs,
                     isModalOpen,
+                    currentUser,
+                    apiOnline,
                     openModal,
-                    closeModal
+                    closeModal,
+                    handleLogout
                 };
             }
         }).mount('#app');
