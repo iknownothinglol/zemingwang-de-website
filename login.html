@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In · Zeming's Control Hub</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        :root {
+            --primary-blue: #00549F;
+            --dark-blue: #002F5F;
+            --accent-green: #00875A;
+            --accent-red: #E30066;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(0, 84, 159, 0.18) 0%, transparent 45%),
+                radial-gradient(circle at 80% 80%, rgba(0, 47, 95, 0.20) 0%, transparent 45%),
+                linear-gradient(135deg, #0f1f3a 0%, #002F5F 50%, #00549F 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Decorative animated blobs */
+        body::before,
+        body::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.45;
+            animation: float 18s ease-in-out infinite;
+            pointer-events: none;
+        }
+        body::before {
+            width: 380px; height: 380px;
+            background: #00875A;
+            top: -100px; left: -100px;
+        }
+        body::after {
+            width: 460px; height: 460px;
+            background: #E30066;
+            bottom: -150px; right: -120px;
+            animation-delay: -9s;
+        }
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(40px, -30px) scale(1.05); }
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow:
+                0 20px 60px -10px rgba(0, 0, 0, 0.35),
+                0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+        }
+
+        .input-field {
+            transition: all 0.2s ease;
+        }
+        .input-field:focus {
+            box-shadow: 0 0 0 3px rgba(0, 84, 159, 0.18);
+        }
+
+        .primary-btn {
+            background: linear-gradient(135deg, #00549F 0%, #002F5F 100%);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .primary-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px -5px rgba(0, 84, 159, 0.5);
+        }
+        .primary-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        .primary-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+        .shake { animation: shake 0.4s ease-in-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.25s ease-out; }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="w-full max-w-md relative z-10">
+
+        <!-- Branding header -->
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/95 text-[#00549F] font-bold text-2xl shadow-2xl mb-3">
+                ZW
+            </div>
+            <h1 class="text-2xl font-bold text-white tracking-tight drop-shadow">Zeming's Control Hub</h1>
+            <p class="text-sm text-blue-200/90 mt-1">RWTH Aachen · Academic & Dev Hub</p>
+        </div>
+
+        <!-- Login Card -->
+        <div class="glass-card rounded-2xl p-7 sm:p-8" :class="{ 'shake': errorShake }">
+
+            <div class="mb-6">
+                <h2 class="text-xl font-bold text-slate-800">Welcome back</h2>
+                <p class="text-sm text-slate-500 mt-1">Please sign in to continue.</p>
+            </div>
+
+            <!-- Error alert -->
+            <div v-if="errorMessage" class="fade-in mb-5 px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm flex items-start gap-2">
+                <i class="ph-fill ph-warning-circle text-lg flex-shrink-0 mt-0.5"></i>
+                <span>{{ errorMessage }}</span>
+            </div>
+
+            <!-- Form -->
+            <form @submit.prevent="handleLogin" class="space-y-4">
+
+                <!-- Username -->
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Username</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="ph ph-user-circle text-lg"></i>
+                        </span>
+                        <input
+                            v-model="username"
+                            type="text"
+                            autocomplete="username"
+                            spellcheck="false"
+                            required
+                            :disabled="loading"
+                            placeholder="Your username"
+                            class="input-field w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#00549F] focus:bg-white disabled:opacity-60"
+                        />
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Password</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="ph ph-lock-key text-lg"></i>
+                        </span>
+                        <input
+                            v-model="password"
+                            :type="showPassword ? 'text' : 'password'"
+                            @keyup="checkCapsLock"
+                            @keydown="checkCapsLock"
+                            autocomplete="current-password"
+                            required
+                            :disabled="loading"
+                            placeholder="Your password"
+                            class="input-field w-full pl-10 pr-12 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#00549F] focus:bg-white disabled:opacity-60"
+                        />
+                        <button
+                            type="button"
+                            @click="showPassword = !showPassword"
+                            tabindex="-1"
+                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                        >
+                            <i :class="showPassword ? 'ph ph-eye-slash' : 'ph ph-eye'" class="text-lg"></i>
+                        </button>
+                    </div>
+                    <p v-if="capsLockOn" class="fade-in text-[11px] text-amber-600 mt-1.5 flex items-center gap-1">
+                        <i class="ph-fill ph-warning"></i> Caps Lock is on
+                    </p>
+                </div>
+
+                <!-- Remember me -->
+                <div class="flex items-center justify-between pt-1">
+                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+                        <input type="checkbox" v-model="rememberMe" :disabled="loading" class="rounded text-[#00549F] focus:ring-[#00549F] h-4 w-4 border-slate-300">
+                        <span>Remember me for 7 days</span>
+                    </label>
+                </div>
+
+                <!-- Submit -->
+                <button
+                    type="submit"
+                    :disabled="loading || !username || !password"
+                    class="primary-btn w-full py-3 mt-2 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2"
+                >
+                    <span v-if="loading" class="spinner"></span>
+                    <span v-if="loading">Signing in...</span>
+                    <template v-else>
+                        <i class="ph-fill ph-sign-in"></i>
+                        <span>Sign in</span>
+                    </template>
+                </button>
+
+            </form>
+
+            <!-- Footer note -->
+            <div class="mt-6 pt-5 border-t border-slate-100 text-center">
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                    No account? Contact the administrator (Zeming) for access.<br>
+                    All actions on this site require sign-in.
+                </p>
+            </div>
+        </div>
+
+        <!-- Bottom branding -->
+        <div class="text-center mt-6">
+            <p class="text-xs text-blue-200/70">
+                &copy; 2026 Zeming Wang &middot; Deployed on Ubuntu VPS
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const username = ref('');
+                const password = ref('');
+                const rememberMe = ref(true);
+                const showPassword = ref(false);
+                const loading = ref(false);
+                const errorMessage = ref('');
+                const errorShake = ref(false);
+                const capsLockOn = ref(false);
+
+                // ----- Auto-redirect if already signed in -----
+                const checkExistingSession = async () => {
+                    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+                    if (!token) return;
+
+                    try {
+                        const res = await fetch('/api/me', {
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        });
+                        if (res.ok) {
+                            // Token still valid → go straight to dashboard
+                            window.location.replace('/index.html');
+                        } else {
+                            // Token expired/invalid → clean up
+                            localStorage.removeItem('auth_token');
+                            sessionStorage.removeItem('auth_token');
+                            localStorage.removeItem('auth_user');
+                            sessionStorage.removeItem('auth_user');
+                        }
+                    } catch (err) {
+                        // Network error, ignore — let user sign in manually
+                    }
+                };
+
+                // ----- Caps Lock detection -----
+                const checkCapsLock = (e) => {
+                    if (e.getModifierState) {
+                        capsLockOn.value = e.getModifierState('CapsLock');
+                    }
+                };
+
+                // ----- Trigger error shake animation -----
+                const triggerShake = () => {
+                    errorShake.value = false;
+                    setTimeout(() => { errorShake.value = true; }, 10);
+                    setTimeout(() => { errorShake.value = false; }, 500);
+                };
+
+                // ----- Main login handler -----
+                const handleLogin = async () => {
+                    if (!username.value || !password.value) return;
+                    loading.value = true;
+                    errorMessage.value = '';
+
+                    try {
+                        const res = await fetch('/api/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                username: username.value,
+                                password: password.value
+                            })
+                        });
+
+                        const data = await res.json().catch(() => ({}));
+
+                        if (!res.ok) {
+                            // Specific error messages by status
+                            if (res.status === 401) {
+                                errorMessage.value = 'Incorrect username or password.';
+                            } else if (res.status === 400) {
+                                errorMessage.value = data.error || 'Please fill in both fields.';
+                            } else if (res.status >= 500) {
+                                errorMessage.value = 'Server error. Please try again later.';
+                            } else {
+                                errorMessage.value = data.error || 'Sign-in failed. Please try again.';
+                            }
+                            triggerShake();
+                            password.value = '';
+                            return;
+                        }
+
+                        // Success — persist token + user info
+                        const storage = rememberMe.value ? localStorage : sessionStorage;
+                        storage.setItem('auth_token', data.token);
+                        storage.setItem('auth_user', JSON.stringify(data.user));
+
+                        // Brief success state, then redirect
+                        window.location.replace('/index.html');
+
+                    } catch (err) {
+                        errorMessage.value = 'Network error. Is the server reachable?';
+                        triggerShake();
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                onMounted(() => {
+                    checkExistingSession();
+                });
+
+                return {
+                    username, password, rememberMe, showPassword,
+                    loading, errorMessage, errorShake, capsLockOn,
+                    handleLogin, checkCapsLock
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
