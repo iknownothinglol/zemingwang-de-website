@@ -25,3 +25,17 @@ A running log of what gets done on zemingwang.de.
 ### Tomorrow
 - Apply for GitHub Student Pack with RWTH email (for free Copilot Pro)
 - Plan the modularization refactor for index.html
+
+## 2026-05-26 (Day 2)
+
+### Done
+- Applied and got approved for GitHub Student Developer Pack (7-hour turnaround)
+- Awaiting 72-hour benefit activation window for partner offers
+- Confirmed Anthropic does not offer individual student discounts; only Claude for Education partnerships exist
+- Learned the difference between `>` (overwrite) and `>>` (append) in shell — append the right way
+
+### Plans
+- Email RWTH IT about Claude for Education program
+- Redeem GitHub Copilot Pro when benefits activate (~May 28)
+- Redeem JetBrains all-products license
+- Start refactor: extract inline JS/CSS from index.html
